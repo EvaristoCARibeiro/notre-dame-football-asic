@@ -1,8 +1,18 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Tiny Tapeout Verilog Project Template
+# Notre Dame Football ASIC
 
-- [Read the documentation for project](docs/info.md)
+A single-player Pong game with a Notre Dame football theme, drawn on a 640x480 VGA screen and taped out on a real chip with Tiny Tapeout. You play a lineman holding a blocking pad on the goal line, and your goal is to keep the football from getting past you into the end zone.
+
+![Screenshot of game in IC VGA emulator](image.png)
+
+This design is part of the [Tiny Tapeout TTSKY26d shuttle](https://app.tinytapeout.com/shuttles/ttsky26d).
+
+- [Read the full documentation for the project](docs/info.md)
+
+## Author
+
+Evaristo Campos de Abreu Ribeiro, [LinkedIn](https://www.linkedin.com/in/evaristoribeiro)
 
 ## What is Tiny Tapeout?
 
@@ -10,33 +20,25 @@ Tiny Tapeout is an educational project that aims to make it easier and cheaper t
 
 To learn more and get started, visit https://tinytapeout.com.
 
-## Set up your Verilog project
+## How it works
 
-1. Add your Verilog files to the `src` folder.
-2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/info.md](docs/info.md) and add a description of your project.
-4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
+The whole game is written in Verilog and turned into the chip's actual circuitry. There is no processor, software or firmware: the logic gates on the chip track the ball and the lineman and work out the color of every pixel as the VGA signal is sent to the screen, 60 times per second. The design will be fabricated using the open source [SKY130](https://github.com/google/skywater-pdk) 130 nm process (PDK).
 
-The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
+On screen there is half of a football field seen from above: an end zone with a goal post, the field up to the 50, and the left half of the Notre Dame monogram at midfield. The football gets faster every time the lineman blocks it, and where he blocks it changes its angle.
 
-## Enable GitHub actions to build the results page
+## How to play
 
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
+Connect the TinyVGA Pmod to the output pins and a VGA monitor. After reset, the ball is served right away. Play with two push buttons, with a SNES compatible controller on the Gamepad Pmod, or with both at the same time:
 
-## Resources
+| Push button | Controller | Lineman   |
+|-------------|------------|-----------|
+| `ui_in[0]`  | D-pad Up   | Move up   |
+| `ui_in[1]`  | D-pad Down | Move down |
 
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
+The push buttons are active high: connect each one between VCC and its pin, with a pull-down resistor from the pin to GND.
 
-## What next?
+## Hardware
 
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+- [TinyVGA Pmod](https://github.com/mole99/tiny-vga) on the output pins
+- Optional: [Gamepad Pmod](https://github.com/psychogenic/gamepad-pmod) on `ui_in[6:4]`, with a SNES compatible controller
+- Optional: two push buttons with pull-down resistors on `ui_in[0]` and `ui_in[1]`

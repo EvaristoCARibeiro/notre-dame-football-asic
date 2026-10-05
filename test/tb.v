@@ -27,8 +27,7 @@ module tb ();
   wire VGND = 1'b0;
 `endif
 
-  // Replace tt_um_example with your module name:
-  tt_um_evaristocaribeiro_pongasic user_project (
+  tt_um_evaristocaribeiro_notredamefootballasic user_project (
 
       // Include power ports for the Gate Level test:
 `ifdef GL_TEST

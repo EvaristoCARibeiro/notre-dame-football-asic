@@ -1,28 +1,35 @@
 ## How it works
 
-This project is a simple one-player Pong game displayed on a VGA monitor at 640×480, 60 Hz.
+Notre Dame Football ASIC is a single-player Pong game with a Notre Dame football theme, drawn on a 640x480 VGA screen. You play a lineman holding a blocking pad on the goal line, and your goal is to keep the football from getting past you into the end zone.
 
-<img width="1374" height="1392" alt="image" src="https://github.com/user-attachments/assets/6e9021de-6d96-4f97-b87f-899521d250ba" />
+The screen shows half of a football field, seen from above:
 
-A white paddle sits near the left edge of the screen and a small white ball moves diagonally across the playfield. The ball bounces off the top, bottom and right edges of the screen and off the paddle. If the paddle misses the ball, the ball is served again from the middle of the screen, heading right.
+- On the left, the end zone with diagonal stripes and a yellow goal post. Since the field is seen from straight above, the uprights only show as round caps on the ends of the crossbar, and the post's full shape shows up as a shadow on the grass.
+- The field from the goal line to the 50, with a white yard line every 5 yards, alternating light and dark green 5-yard bands, short tick marks for every yard along the sidelines and the hash marks, and a small ring on the 35.
+- The left half of the Notre Dame monogram at midfield, in Notre Dame blue and gold. The 50 yard line is the right edge of the screen, so the logo looks like it continues off screen, like in the middle of the real stadium.
+- A white outline around the whole field.
 
-The design has no frame buffer. A sync generator produces the VGA timing and the current pixel position, and each pixel's color is computed on the fly by checking whether that position falls inside the paddle or ball rectangle.
+The lineman (with a gold helmet) holds a black pad on the goal line and moves up and down with the controls. The football bounces off the outline at the top, bottom and right side of the field, and off the pad. The game is updated once per frame (60 times per second):
 
-The game state is just the paddle's vertical position, the ball's position and the ball's direction. It is updated once per frame, at the start of vertical blanking, so objects never tear on screen.
-
-Controller input comes from the Gamepad Pmod, whose microcontroller reads the SNES controller and sends the button states to the chip over a 3-wire serial interface (data, clock, latch). The chip shifts in the 12 button bits and latches them, and the game uses the Up and Down buttons to move the paddle.
+- The ball starts at a speed of 5 pixels per frame, and every time it hits the pad it gets 1 faster, up to 9.
+- Where the pad is when the ball hits it changes the ball's angle, so its path is less predictable. With the pad in the middle of the screen the ball leaves at 45 degrees. The higher the pad, the flatter and faster sideways the ball goes; the lower the pad, the steeper. The ball's speed is split between x and y by `round(speed * (pad_y - 208) / 500)` pixels, where `pad_y` is the top of the pad and 208 is the pad in the middle of the screen.
+- If the ball gets past the pad, it is served again from the middle of the field at speed 5.
 
 ## How to test
 
-1. Plug the Tiny VGA Pmod into the dedicated outputs (`uo_out`) and connect a VGA monitor.
-2. Plug the Gamepad Pmod into the dedicated inputs (`ui_in`); it uses `ui_in[6]` (data), `ui_in[5]` (clock) and `ui_in[4]` (latch). Connect an SNES controller to it.
-3. Set the project clock to 25.175 MHz (25 MHz also works on most monitors) and reset the design.
-4. The paddle appears at the left, centered vertically, and the ball starts in the middle of the screen moving toward the right.
-5. Hold Up or Down on the controller to move the paddle and keep the ball from getting past it. The paddle stops at the top and bottom edges of the screen.
+Connect the TinyVGA Pmod to the output pins and a VGA monitor. After reset, the ball is served from the middle of the field right away: move the lineman up and down to block it.
+
+You can play with two push buttons on the `ui_in` pins, with a SNES compatible controller and the Gamepad Pmod, or with both at the same time:
+
+| Push button | Controller | Lineman   |
+|-------------|------------|-----------|
+| `ui_in[0]`  | D-pad Up   | Move up   |
+| `ui_in[1]`  | D-pad Down | Move down |
+
+The push buttons are active high: connect each one between VCC and its pin, with a pull-down resistor from the pin to GND. They don't need any debouncing, since the game only reads them once per frame.
 
 ## External hardware
 
-- Tiny VGA Pmod, connected to the dedicated outputs
-- Gamepad Pmod, connected to the dedicated inputs
-- SNES controller, connected to the Gamepad Pmod
-- VGA monitor
+- [TinyVGA Pmod](https://github.com/mole99/tiny-vga) on the output pins
+- Optional: [Gamepad Pmod](https://github.com/psychogenic/gamepad-pmod) on `ui_in[6:4]`, with a SNES compatible controller
+- Optional: two push buttons with pull-down resistors on `ui_in[0]` (up) and `ui_in[1]` (down)
