@@ -4,8 +4,8 @@ Notre Dame Football ASIC is a single-player Pong game with a Notre Dame football
 
 The screen shows half of a football field, seen from above:
 
-- On the left, the end zone with diagonal stripes and a yellow goal post. Since the field is seen from straight above, the uprights only show as round caps on the ends of the crossbar, and the post's full shape shows up as a shadow on the grass.
-- The field from the goal line to the 50, with a white yard line every 5 yards, alternating light and dark green 5-yard bands, short tick marks for every yard along the sidelines and the hash marks, and a small ring on the 35.
+- On the left, the end zone with diagonal stripes and a yellow goal post. Since the field is seen from straight above, the uprights only show as round caps on the ends of the crossbar.
+- The field from the goal line to the 50, with a white yard line every 5 yards, alternating light and dark green 5-yard bands, and short tick marks for every yard along the sidelines and the hash marks.
 - The left half of the Notre Dame monogram at midfield, in Notre Dame blue and gold. The 50 yard line is the right edge of the screen, so the logo looks like it continues off screen, like in the middle of the real stadium.
 - A white outline around the whole field.
 
@@ -17,19 +17,14 @@ The lineman (with a gold helmet) holds a black pad on the goal line and moves up
 
 ## How to test
 
-Connect the TinyVGA Pmod to the output pins and a VGA monitor. After reset, the ball is served from the middle of the field right away: move the lineman up and down to block it.
+Connect the TinyVGA Pmod to the output pins and a VGA monitor, and a SNES compatible controller to the Gamepad Pmod. After reset, the ball is served from the middle of the field right away: move the lineman up and down with the D-pad to block it.
 
-You can play with two push buttons on the `ui_in` pins, with a SNES compatible controller and the Gamepad Pmod, or with both at the same time:
-
-| Push button | Controller | Lineman   |
-|-------------|------------|-----------|
-| `ui_in[0]`  | D-pad Up   | Move up   |
-| `ui_in[1]`  | D-pad Down | Move down |
-
-The push buttons are active high: connect each one between VCC and its pin, with a pull-down resistor from the pin to GND. They don't need any debouncing, since the game only reads them once per frame.
+| Controller | Lineman   |
+|------------|-----------|
+| D-pad Up   | Move up   |
+| D-pad Down | Move down |
 
 ## External hardware
 
 - [TinyVGA Pmod](https://github.com/mole99/tiny-vga) on the output pins
-- Optional: [Gamepad Pmod](https://github.com/psychogenic/gamepad-pmod) on `ui_in[6:4]`, with a SNES compatible controller
-- Optional: two push buttons with pull-down resistors on `ui_in[0]` (up) and `ui_in[1]` (down)
+- [Gamepad Pmod](https://github.com/psychogenic/gamepad-pmod) on `ui_in[6:4]`, with a SNES compatible controller

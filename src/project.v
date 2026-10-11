@@ -86,7 +86,6 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
   localparam [5:0] GOLD        = {2'b11, 2'b10, 2'b00};
   localparam [5:0] NAVY        = {2'b00, 2'b00, 2'b01};
   localparam [5:0] YELLOW      = {2'b11, 2'b11, 2'b00};
-  localparam [5:0] GRAY        = {2'b10, 2'b10, 2'b10};
   localparam [5:0] ND_BLUE     = {2'b00, 2'b00, 2'b01};  // closest to #0C2340 (same as NAVY)
   localparam [5:0] ND_GOLD     = {2'b10, 2'b10, 2'b01};  // closest to #AE9142
 
@@ -324,52 +323,36 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
   wire [9:0] ball_dy = pix_y - ball_y;
   wire in_ball_box = (ball_dx < BALL_W) && (ball_dy < BALL_H);
 
-  // Football sprite: 15 x 7 pixels, drawn at 2x size (30 x 14).
+  // Football: a plain brown 15 x 7 pixel shape, drawn at 2x size (30 x 14).
   //
   //   ....BBBBBBB....    B = brown leather
-  //   ..BWBBBBBBBWB..    W = white laces
-  //   .BBWBWBWBWBWBB.    . = see-through
-  //   BBBWWWWWWWWWBBB
-  //   .BBWBWBWBWBWBB.
-  //   ..BWBBBBBBBWB..
+  //   ..BBBBBBBBBBB..    . = see-through
+  //   .BBBBBBBBBBBBB.
+  //   BBBBBBBBBBBBBBB
+  //   .BBBBBBBBBBBBB.
+  //   ..BBBBBBBBBBB..
   //   ....BBBBBBB....
   //
-  // Stored as one 15-bit mask per color and row (1 = pixel has that color).
+  // Stored as one 15-bit mask per row (1 = brown).
   wire [3:0] fb_col  = ball_dx[4:1];     // divide by 2 for the 2x size
   wire [3:0] fb_row  = ball_dy[4:1];
 
-  reg [14:0] fb_brown, fb_white;
-  always @(*) begin  // brown leather
+  reg [14:0] fb_mask;
+  always @(*) begin
     case (fb_row)
-      4'd0:    fb_brown = 15'b000011111110000;
-      4'd1:    fb_brown = 15'b001011111110100;
-      4'd2:    fb_brown = 15'b011010101010110;
-      4'd3:    fb_brown = 15'b111000000000111;
-      4'd4:    fb_brown = 15'b011010101010110;
-      4'd5:    fb_brown = 15'b001011111110100;
-      4'd6:    fb_brown = 15'b000011111110000;
-      default: fb_brown = 15'b000000000000000;
-    endcase
-  end
-
-  always @(*) begin  // white laces
-    case (fb_row)
-      4'd0:    fb_white = 15'b000000000000000;
-      4'd1:    fb_white = 15'b000100000001000;
-      4'd2:    fb_white = 15'b000101010101000;
-      4'd3:    fb_white = 15'b000111111111000;
-      4'd4:    fb_white = 15'b000101010101000;
-      4'd5:    fb_white = 15'b000100000001000;
-      4'd6:    fb_white = 15'b000000000000000;
-      default: fb_white = 15'b000000000000000;
+      4'd0:    fb_mask = 15'b000011111110000;
+      4'd1:    fb_mask = 15'b001111111111100;
+      4'd2:    fb_mask = 15'b011111111111110;
+      4'd3:    fb_mask = 15'b111111111111111;
+      4'd4:    fb_mask = 15'b011111111111110;
+      4'd5:    fb_mask = 15'b001111111111100;
+      4'd6:    fb_mask = 15'b000011111110000;
+      default: fb_mask = 15'b000000000000000;
     endcase
   end
 
   wire [3:0] fb_bit     = 4'd14 - fb_col;  // bit 14 is the leftmost column
-  wire       ball_white = in_ball_box && fb_white[fb_bit];
-  wire       ball_brown = in_ball_box && fb_brown[fb_bit];
-  wire       ball_pixel = ball_white || ball_brown;
-  wire [5:0] ball_color = ball_white ? WHITE : BROWN;
+  wire       ball_pixel = in_ball_box && fb_mask[fb_bit];
 
   // ---------------- Football field background ----------------
   // End zone on the left, then the field from the goal line (0) to the 50,
@@ -412,8 +395,7 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
                          (stripe_n < 9 * 64) && (stripe_n[5:2] == 4'b0000);
 
   // Goal post seen straight from above, just inside the end line. From up here the
-  // uprights are only round caps at the ends of the crossbar, so the low sun behind the
-  // end line casts the post's full Y shape onto the end zone as a shadow.
+  // uprights are only round caps at the ends of the crossbar.
   // The post is lit from the upper left: yellow on that side, gold on the other.
   localparam [9:0] POST_X  = 10;   // crossbar x = 10..12
   localparam [9:0] POST_Y0 = 180;  // crossbar y = 180..299, between the hash marks
@@ -451,71 +433,9 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
                           post_stem ? (pix_y == STEM_Y) : cap_hi[cap_bit];
   wire [5:0] post_color = post_lit ? YELLOW : GOLD;
 
-  // Shadow: a 3 px wide Y on the ground. The crossbar's shadow falls 12 px to the right
-  // and 3 px down; the uprights' shadows run on from its ends for 54 px, dropping 1 px
-  // every 4 px. Undoing that slope (sh_y) turns them back into straight bands.
-  // The support post's shadow climbs from the end line to the crossbar's shadow at
-  // 1 px every 8 px. Only every other pixel is darkened (a checkerboard), so the shadow
-  // reads as darker grass instead of a black object.
-  localparam [9:0] SH_X   = 22;   // crossbar shadow x = 22..24
-  localparam [9:0] SH_Y0  = 183;  // crossbar shadow y = 183..302
-  localparam [9:0] SH_Y1  = 300;  // lower upright shadow starts here
-  localparam [9:0] SH_LEN = 55;   // upright shadows run to x = 76
-  // The whole shadow lies in x = 4..76, y = 183..315, so its math is done in a small
-  // local frame (7-bit x, 8-bit y from SH_ZY) instead of on full 10-bit screen positions.
-  localparam [9:0] SH_ZY  = 176;  // local frame: y = 176..431
-  wire       in_sh_zone = (pix_x < 128) && (pix_y >= SH_ZY) && (pix_y < SH_ZY + 256);
-  wire [9:0] sh_zy10    = pix_y - SH_ZY;
-  wire [7:0] sh_zy      = sh_zy10[7:0];
-  wire [6:0] sh_zx      = pix_x[6:0];
-  wire [6:0] sh_dx = sh_zx - SH_X[6:0];
-  wire [7:0] sh_y  = sh_zy - {3'b0, sh_dx[6:2]};      // down 1 px every 4 px
-  wire [6:0] st_dx = sh_zx - BORDER[6:0];
-  wire [7:0] st_y  = sh_zy - {4'b0, st_dx[6:3]};      // down 1 px every 8 px
-  localparam [7:0] SH_A = SH_Y0 - SH_ZY;              // the shadow rows, in the local frame
-  localparam [7:0] SH_B = SH_Y1 - SH_ZY;
-  localparam [7:0] ST_A = STEM_Y - SH_ZY;
-  wire shadow_post = in_sh_zone && (sh_zx >= SH_X[6:0]) && (sh_zx < SH_X[6:0] + SH_LEN[6:0]) &&
-                     (((sh_y >= SH_A) && (sh_y < SH_A + 3)) ||                   // upper upright
-                      ((sh_y >= SH_B) && (sh_y < SH_B + 3)) ||                   // lower upright
-                      ((sh_zx < SH_X[6:0] + 3) && (sh_y >= SH_A) && (sh_y < SH_B + 3))); // crossbar
-  wire shadow_stem = in_sh_zone && (sh_zx >= BORDER[6:0]) && (sh_zx < SH_X[6:0]) &&
-                     (st_y >= ST_A) && (st_y < ST_A + 3);
-  wire post_shadow = (shadow_post || shadow_stem) && (pix_x[0] ^ pix_y[0]);
-
   // White outline around the whole field
   wire outline = (pix_x < BORDER) || (pix_x >= 640 - BORDER) ||
                  (pix_y < BORDER) || (pix_y >= 480 - BORDER);
-
-  // Small white ring on the 35 yard line, halfway down the field.
-  // The 35 is the 7th yard line past the goal line: x = 108 + 7 * 53 = 479 (2 px wide),
-  // so a 12 x 12 ring from x = 474 is centered on it. 1 = white.
-  localparam RING_X = GOAL_X + 7 * BAND_W - 5;  // = 474
-  localparam RING_Y = 234;                       // centered between y = 239 and 240
-  wire in_ring_box = (pix_x >= RING_X) && (pix_x < RING_X + 12) &&
-                     (pix_y >= RING_Y) && (pix_y < RING_Y + 12);
-  wire [9:0] ring_dx = pix_x - RING_X;
-  wire [9:0] ring_dy = pix_y - RING_Y;
-
-  reg [11:0] ring_row;
-  always @(*) begin
-    case (ring_dy[3:0])
-      4'd0:    ring_row = 12'b000011110000;
-      4'd1:    ring_row = 12'b001111111100;
-      4'd2:    ring_row = 12'b011100001110;
-      4'd3:    ring_row = 12'b011000000110;
-      4'd4:    ring_row = 12'b110000000011;
-      4'd5:    ring_row = 12'b110000000011;
-      4'd6:    ring_row = 12'b110000000011;
-      4'd7:    ring_row = 12'b110000000011;
-      4'd8:    ring_row = 12'b011000000110;
-      4'd9:    ring_row = 12'b011100001110;
-      4'd10:   ring_row = 12'b001111111100;
-      4'd11:   ring_row = 12'b000011110000;
-      default: ring_row = 12'b000000000000;
-    endcase
-  end
-  wire ring = in_ring_box && ring_row[4'd11 - ring_dx[3:0]];  // bit 11 is the leftmost column
 
   // Left half of the Notre Dame monogram at midfield. The 50 yard line is under the
   // right outline, so the logo's center line is the right edge of the field and its
@@ -611,17 +531,16 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
         else if (lm_pixel)
           {R, G, B} <= lm_color;                           // the lineman holding it
         else if (ball_pixel)
-          {R, G, B} <= ball_color;                         // then the football
+          {R, G, B} <= BROWN;                              // then the football
         else if (outline)
           {R, G, B} <= WHITE;                              // field outline
         else if (logo_pixel)
           {R, G, B} <= logo_color;                         // midfield logo over the lines
         else if (pix_x < GOAL_X)
-          {R, G, B} <= goal_post   ? post_color :          // end zone with the goal post,
-                       post_shadow ? (stripe ? GRAY : BLACK) :   // its shadow,
-                       stripe      ? WHITE : DARK_GREEN;   // and the stripes
-        else if (yard_line || ring || tick)
-          {R, G, B} <= WHITE;                              // yard lines, ring and ticks
+          {R, G, B} <= goal_post ? post_color :            // end zone with the goal post
+                       stripe    ? WHITE : DARK_GREEN;     // and the stripes
+        else if (yard_line || tick)
+          {R, G, B} <= WHITE;                              // yard lines and ticks
         else
           {R, G, B} <= light_band ? LIGHT_GREEN : DARK_GREEN;
       end else begin
