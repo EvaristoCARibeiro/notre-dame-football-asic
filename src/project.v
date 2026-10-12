@@ -1,10 +1,20 @@
 /*
+  * Notre Dame Football Pong ASIC
+  *
+  * Evaristo Campos de Abreu Ribeiro
+  * University of Notre Dame
+  * Electrical Engineering '28
+  * Proceding from IEEE LACSS Conference and Workshop
+  *
+  * Simple one-player pong: move the paddle with Up/Down on the SNES controller.
+  * The ball bounces off the white field outline and off the paddle.
+  * If the paddle misses, the ball is served again from the middle.
+*/
+
+/*
+ * Original Verilog Template Information:
  * Copyright (c) 2025 Uri Shaked
  * SPDX-License-Identifier: Apache-2.0
- *
- * Simple one-player pong: move the paddle with Up/Down on the SNES controller.
- * The ball bounces off the white field outline and off the paddle.
- * If the paddle misses, the ball is served again from the middle.
  */
 
 `default_nettype none
@@ -73,9 +83,23 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
   );
 
   // Suppress unused signals warning (buttons not used by the game yet)
-  wire _unused_ok = &{ena, ui_in[7], ui_in[3:0], uio_in,
+  wire _unused_ok = &{ena, ui_in[7], ui_in[3:2], uio_in,
                       inp_b, inp_y, inp_select, inp_start, inp_left, inp_right,
                       inp_a, inp_x, inp_l, inp_r};
+
+  // Push buttons as a second way to play: ui_in[0] = up, ui_in[1] = down, active high
+  // (button to VCC, pull-down resistor to GND). They are not synced to our clock, so pass
+  // them through two flip-flops first. No debouncing is needed: the paddle only looks at
+  // them once per frame (every 16.7 ms), so a bouncing contact costs at most one step.
+  reg [1:0] btn_meta, btn_sync;
+  always @(posedge clk) begin
+    btn_meta <= ui_in[1:0];
+    btn_sync <= btn_meta;
+  end
+
+  // Either the controller or the buttons move the paddle; both work at the same time
+  wire move_up   = inp_up   || btn_sync[0];
+  wire move_down = inp_down || btn_sync[1];
 
   // Colors
   localparam [5:0] BLACK       = {2'b00, 2'b00, 2'b00};
@@ -155,12 +179,12 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
       ball_vy    <= SPEED_START;
     end else if (frame_tick) begin
 
-      // Paddle: move while Up/Down is held, stop at the outline.
+      // Paddle: move while Up/Down is held (controller or buttons), stop at the outline.
       // (The limits below have their constants folded into one side of the comparison,
       // so each check needs one adder or none, instead of two.)
-      if (inp_up && pad_y >= BORDER + PAD_SPEED)
+      if (move_up && pad_y >= BORDER + PAD_SPEED)
         pad_y <= pad_y - PAD_SPEED;
-      else if (inp_down && pad_y <= 480 - BORDER - PAD_H - PAD_SPEED)
+      else if (move_down && pad_y <= 480 - BORDER - PAD_H - PAD_SPEED)
         pad_y <= pad_y + PAD_SPEED;
 
       // Ball, horizontal: turn around at the right outline or at the paddle.
@@ -323,36 +347,52 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
   wire [9:0] ball_dy = pix_y - ball_y;
   wire in_ball_box = (ball_dx < BALL_W) && (ball_dy < BALL_H);
 
-  // Football: a plain brown 15 x 7 pixel shape, drawn at 2x size (30 x 14).
+  // Football sprite: 15 x 7 pixels, drawn at 2x size (30 x 14).
   //
   //   ....BBBBBBB....    B = brown leather
-  //   ..BBBBBBBBBBB..    . = see-through
-  //   .BBBBBBBBBBBBB.
-  //   BBBBBBBBBBBBBBB
-  //   .BBBBBBBBBBBBB.
-  //   ..BBBBBBBBBBB..
+  //   ..BWBBBBBBBWB..    W = white laces
+  //   .BBWBWBWBWBWBB.    . = see-through
+  //   BBBWWWWWWWWWBBB
+  //   .BBWBWBWBWBWBB.
+  //   ..BWBBBBBBBWB..
   //   ....BBBBBBB....
   //
-  // Stored as one 15-bit mask per row (1 = brown).
+  // Stored as one 15-bit mask per color and row (1 = pixel has that color).
   wire [3:0] fb_col  = ball_dx[4:1];     // divide by 2 for the 2x size
   wire [3:0] fb_row  = ball_dy[4:1];
 
-  reg [14:0] fb_mask;
-  always @(*) begin
+  reg [14:0] fb_brown, fb_white;
+  always @(*) begin  // brown leather
     case (fb_row)
-      4'd0:    fb_mask = 15'b000011111110000;
-      4'd1:    fb_mask = 15'b001111111111100;
-      4'd2:    fb_mask = 15'b011111111111110;
-      4'd3:    fb_mask = 15'b111111111111111;
-      4'd4:    fb_mask = 15'b011111111111110;
-      4'd5:    fb_mask = 15'b001111111111100;
-      4'd6:    fb_mask = 15'b000011111110000;
-      default: fb_mask = 15'b000000000000000;
+      4'd0:    fb_brown = 15'b000011111110000;
+      4'd1:    fb_brown = 15'b001011111110100;
+      4'd2:    fb_brown = 15'b011010101010110;
+      4'd3:    fb_brown = 15'b111000000000111;
+      4'd4:    fb_brown = 15'b011010101010110;
+      4'd5:    fb_brown = 15'b001011111110100;
+      4'd6:    fb_brown = 15'b000011111110000;
+      default: fb_brown = 15'b000000000000000;
+    endcase
+  end
+
+  always @(*) begin  // white laces
+    case (fb_row)
+      4'd0:    fb_white = 15'b000000000000000;
+      4'd1:    fb_white = 15'b000100000001000;
+      4'd2:    fb_white = 15'b000101010101000;
+      4'd3:    fb_white = 15'b000111111111000;
+      4'd4:    fb_white = 15'b000101010101000;
+      4'd5:    fb_white = 15'b000100000001000;
+      4'd6:    fb_white = 15'b000000000000000;
+      default: fb_white = 15'b000000000000000;
     endcase
   end
 
   wire [3:0] fb_bit     = 4'd14 - fb_col;  // bit 14 is the leftmost column
-  wire       ball_pixel = in_ball_box && fb_mask[fb_bit];
+  wire       ball_white = in_ball_box && fb_white[fb_bit];
+  wire       ball_brown = in_ball_box && fb_brown[fb_bit];
+  wire       ball_pixel = ball_white || ball_brown;
+  wire [5:0] ball_color = ball_white ? WHITE : BROWN;
 
   // ---------------- Football field background ----------------
   // End zone on the left, then the field from the goal line (0) to the 50,
@@ -531,7 +571,7 @@ module tt_um_evaristocaribeiro_notredamefootballasic (
         else if (lm_pixel)
           {R, G, B} <= lm_color;                           // the lineman holding it
         else if (ball_pixel)
-          {R, G, B} <= BROWN;                              // then the football
+          {R, G, B} <= ball_color;                         // then the football
         else if (outline)
           {R, G, B} <= WHITE;                              // field outline
         else if (logo_pixel)
